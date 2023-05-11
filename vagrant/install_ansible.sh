@@ -3,7 +3,7 @@
 echo "Installing Ansible dependencies and Git"
 
 # Installation des prerequis
-sudo apt update && apt -y install python3 python3-pip git
+sudo apt update && sudo apt -y install python3 python3-pip git
 
 # Installation de ansible via pip
 python3 -m pip install --user ansible
