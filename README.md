@@ -27,18 +27,14 @@ Pour l'appli "bateau" un flask en python ça suffit "Hello World"
 Crée une pipeline gitlab où est héberger le code d'une appli où son image sera build et stocké sur harbour (pipeline avec tags : dev / staging / prod)
 L'image stockée sera déployée via un chart Helm lui aussi stocké sur Gitlab (pipeline de déploiement)
 
-# Recherche d'information
+# Pré-requis
 
-## Vagrant
+Performances :
+ - X vCPU
+ - X RAM
 
-## Bastion & K8s
-
-## HaProxy
-
-## nginx ou traeffic
-
-## Harbour
-
-## Gitlab sur K8s
-
-## Argo
+Logiciels :
+- [VMware Workstation](https://www.vmware.com/fr/products/workstation-pro.html)
+- [Vagrant](https://developer.hashicorp.com/vagrant/tutorials/getting-started/getting-started-install)
+	- [Vagrant vmware-desktop plugin](https://developer.hashicorp.com/vagrant/docs/providers/vmware/installation)
+	- [Vagrant VMware Utility](https://developer.hashicorp.com/vagrant/downloads/vmware)

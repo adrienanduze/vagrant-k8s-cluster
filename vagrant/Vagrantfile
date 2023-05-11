@@ -1,0 +1,50 @@
+IMAGE_NAME = "generic/ubuntu2204" # Image a utiliser : Ubuntu 22.04 (Jammy)
+MEM = 2048                        # Quantite de RAM a configurer
+CPU = 2                           # Quantite de CPU a configurer
+NB_MASTER = 1                     # Nombre de master a creer
+NB_WORKER = 3                     # Nombre de workers a creer
+NODE_NETWORK_BASE = "192.168.10"  # Reseau a utiliser pour les VM
+POD_NETWORK = "10.0.0.0/16"       # Reseau pour la communication entre pods
+
+
+Vagrant.configure("2") do |config|
+
+  # Definition de la RAM & du CPU
+  config.vm.provider "vmware_desktop" do |perf|
+    perf.memory = MEM
+    perf.cpus = CPU
+  end
+
+  # Configuration d'une VM Ansible
+  config.vm.define "ansible-controller" do |ansible|
+
+    # Image, reseau et nom d'hote
+    ansible.vm.box = IMAGE_NAME
+    ansible.vm.network "private_network", ip: "#{NODE_NETWORK_BASE}.10" # /!\ A corriger pour plusieurs masters /!\
+    ansible.vm.hostname = "ansible-controller"
+
+    # Installation Ansible
+    ansible.vm.provision "shell", privileged: false, path: "install_ansible.sh"
+  end
+
+  # # Configuration du/des master(s)
+  # (1..NB_MASTER).each do |i|
+  #   config.vm.define "master-#{i}" do |master|
+
+  #     # Image, reseau et nom d'hote
+  #     master.vm.box = IMAGE_NAME
+  #     master.vm.network "private_network", ip: "#{NODE_NETWORK_BASE}.20" # /!\ A corriger pour plusieurs masters /!\
+  #     master.vm.hostname = "#{MASTER}-#{i}"
+
+  #     #
+  #   end
+  # end
+
+  # # Configuration du/des worker(s)
+  # (1..NB_WORKER).each do |i|
+  #   config.vm.define "worker-#{i}" do |worker|
+      
+  #   end
+  # end
+
+end
