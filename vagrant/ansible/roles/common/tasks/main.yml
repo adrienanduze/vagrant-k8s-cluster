@@ -1,0 +1,94 @@
+- name: Installation des paquets qui permettent d'utiliser apt avec HTTPS
+  apt:
+    name='{{ item.name }}'
+    state=present
+    update_cache=yes
+  with_items: "{{ https_packages | default([]) }}"
+
+- name: Création du fichier de config containerd
+  file:
+    path: "/etc/modules-load.d/containerd.conf"
+    state: "touch"
+
+- name: Ajout de la configuration pour containerd
+  blockinfile:
+    path: "/etc/modules-load.d/containerd.conf"
+    block: |
+          overlay
+          br_netfilter
+
+- name: modprobe
+  shell: |
+        sudo modprobe overlay
+        sudo modprobe br_netfilter
+
+- name: Création du fichier de config containerd
+  file:
+    path: "/etc/sysctl.d/99-kubernetes-cri.conf"
+    state: "touch"
+
+- name: Configuration système pour le réseau Kubernetes
+  blockinfile:
+    path: "/etc/sysctl.d/99-kubernetes-cri.conf"
+    block: |
+            net.bridge.bridge-nf-call-iptables = 1
+            net.ipv4.ip_forward = 1
+            net.bridge.bridge-nf-call-ip6tables = 1
+
+- name: Application des nouveaux paramètres
+  command: sudo sysctl --system
+
+- name: Ajout des clés des nouveaux repos
+  apt_key:
+    url='{{ item.key }}'
+    state=present
+  with_items: "{{ gpg_keys | default ([]) }}"
+
+- name: Ajout des nouveaux repos
+  apt_repository:
+    repo='{{ item.repo }}'
+    state=present
+  with_items: "{{ repositories | default ([]) }}"
+
+- name: Installer docker
+  apt:
+    name="{{ item.name }}"
+    state=present
+    update_cache=yes
+  with_items: "{{ docker_packages | default ([]) }}"
+
+- name: Ajouter l'utilisateur vagrant au groupe Docker
+  user:
+    name: vagrant
+    group: docker
+
+- name: Retrait du swapfile de /etc/fstab
+  mount:
+    name: "{{ item }}"
+    fstype: swap
+    state: absent
+  with_items:
+  - swap
+  - none
+
+- name: Désactiver la swap
+  command: swapoff -a
+  when: ansible_swaptotal_mb > 0
+
+- name: Installer les binaires de Kubernetes
+  apt:
+    name="{{ item.name }}"
+    state=present
+    update_cache=yes
+  with_items: "{{ k8s_packages | default([]) }}"
+
+- name: Configurer IP du noeud
+  lineinfile:
+    path: '/etc/systemd/system/kubelet.service.d/10-kubeadm.conf'
+    line: 'Environment="KUBELET_EXTRA_ARGS=--node-ip={{ node_ip }}"'
+    regexp: 'KUBELET_EXTRA_ARGS='
+    insertafter: '\[Service\]'
+    state: present
+  notify:
+  - restart kubelet
+  

@@ -8,16 +8,29 @@ MASTER_START_IP = 20              # Premiere adresse IP pour le(s) master(s)
 WORKER_START_IP = 30              # Premiere adresse IP pour le(s) worker(s)
 POD_NETWORK = "10.0.0.0/16"       # Reseau pour la communication entre pods
 
-# Construction du fichier Host
-hosts_text = "192.168.10.10  ansible-controlle\n"           # Ajout du controller ansible
-NB_MASTER.times do |i|                                      # Ajout des noeuds Master
+# Construction du fichier Host & inventaire (ansible)
+hosts_text = "192.168.10.10  ansible-controller\n"           # Ajout du controller ansible
+inventory_text = "[masters]\n"                               # Definition du groupe master
+
+NB_MASTER.times do |i|                                       # Ajout des noeuds Masters
   ip_address = "#{NODE_NETWORK_BASE}.#{MASTER_START_IP+i}"
-  hosts_text += "#{ip_address}  master-#{i+1}\n"
+  hostname = "master-#{i+1}"
+  
+  hosts_text += "#{ip_address}  #{hostname}\n"               # Hosts
+  inventory_text += "#{hostname} node_ip=#{ip_address} node_name=#{hostname} pod_network=#{POD_NETWORK}\n" # Inventaire Ansible
 end
-NB_WORKER.times do |i|                                      # Ajout des noeuds Worker
+
+inventory_text += "\n[workers]\n"                            # Definition du groupe workers
+
+NB_WORKER.times do |i|                                       # Ajout des noeuds Workers
   ip_address = "#{NODE_NETWORK_BASE}.#{WORKER_START_IP+i}"
-  hosts_text += "#{ip_address}  worker-#{i+1}\n"
+  hostname = "worker-#{i+1}"
+
+  hosts_text += "#{ip_address}  #{hostname}\n"
+  inventory_text += "worker-#{i+1} node_ip=#{ip_address}\n"
 end
+
+inventory_text += "\n[all:vars]\nansible_user=vagrant\nansible_ssh_user=vagrant\nansible_ssh_pass=vagrant\n" # Definition de la variable ansible_user
 
 
 
@@ -29,22 +42,6 @@ Vagrant.configure("2") do |config|
     perf.cpus = CPU
   end
 
-  # Configuration d'une VM Ansible
-  config.vm.define "ansible-controller" do |ansible|
-
-    # Image, reseau et nom d'hote
-    ansible.vm.box = IMAGE_NAME
-    ansible.vm.network "private_network", ip: "#{NODE_NETWORK_BASE}.10"
-    ansible.vm.hostname = "ansible-controller"
-    ansible.vm.provision "shell", inline: <<-SHELL
-      echo "#{hosts_text}" | sudo tee -a /etc/hosts #> /dev/null
-    SHELL
-
-    # Installation et configuration Ansible
-    ansible.vm.provision "shell", privileged: false, path: "install_ansible.sh"
-    ansible.vm.synced_folder "roles", "/ansible/roles"
-  end
-
   # Configuration du/des master(s)
   (1..NB_MASTER).each do |i|
     config.vm.define "master-#{i}" do |master|
@@ -54,8 +51,9 @@ Vagrant.configure("2") do |config|
       master.vm.network "private_network", ip: "#{NODE_NETWORK_BASE}.#{19+i}"
       master.vm.hostname = "master-#{i}"
       master.vm.provision "shell", inline: <<-SHELL
-        echo "#{hosts_text}" | sudo tee -a /etc/hosts #> /dev/null
+        echo "#{hosts_text}" | sudo tee -a /etc/hosts > /dev/null
       SHELL
+
     end
   end
 
@@ -68,10 +66,33 @@ Vagrant.configure("2") do |config|
       worker.vm.network "private_network", ip: "#{NODE_NETWORK_BASE}.#{29+i}"
       worker.vm.hostname = "worker-#{i}"
       worker.vm.provision "shell", inline: <<-SHELL
-        echo "#{hosts_text}" | sudo tee -a /etc/hosts #> /dev/null
+        echo "#{hosts_text}" | sudo tee -a /etc/hosts > /dev/null
       SHELL
       
     end
+  end
+
+  # Configuration d'une VM Ansible
+  config.vm.define "ansible-controller" do |ansible|
+
+    # Image, reseau et nom d'hote
+    ansible.vm.box = IMAGE_NAME
+    ansible.vm.network "private_network", ip: "#{NODE_NETWORK_BASE}.10"
+    ansible.vm.hostname = "ansible-controller"
+    ansible.vm.provision "shell", inline: <<-SHELL
+      echo "#{hosts_text}" | sudo tee -a /etc/hosts > /dev/null
+    SHELL
+
+    # Installation et configuration Ansible
+    ansible.vm.provision "shell", privileged: false, path: "install_ansible.sh"
+    ansible.vm.synced_folder "ansible", "/ansible", mount_options: ["umask=003"]
+    ansible.vm.provision "shell", inline: <<-SHELL
+      echo "#{inventory_text}" > /ansible/inventory.yml
+    SHELL
+    ansible.vm.provision "shell", inline: <<-SHELL
+      sudo apt update && sudo apt install sshpass
+    SHELL
+
   end
 
 end
